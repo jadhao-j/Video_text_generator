@@ -1,0 +1,7 @@
+openai-whisper
+transformers
+pydub
+soundfile
+numpy
+flask
+flask-cors
