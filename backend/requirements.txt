@@ -1,7 +1,6 @@
-openai-whisper
-transformers
-pydub
-soundfile
-numpy
 flask
 flask-cors
+torch
+git+https://github.com/openai/whisper.git
+numpy
+# flask-socketio  # Uncomment if you add real-time features
