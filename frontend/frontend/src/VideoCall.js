@@ -11,6 +11,8 @@ function VideoCall() {
   const [partnerId, setPartnerId] = useState('');
   const myVideo = useRef();
   const partnerVideo = useRef();
+  const mediaRecorderRef = useRef(null);
+  const streamRef = useRef(null);
 
   useEffect(() => {
     socket.emit('join');
@@ -22,25 +24,43 @@ function VideoCall() {
         await answerCall(data, from);
       }
     });
+
+    return () => {
+      socket.off('your-id');
+      socket.off('signal');
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (peer) {
+        peer.destroy();
+      }
+    };
     // eslint-disable-next-line
-  }, []);
+  }, [peer]);
 
   const startCall = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    myVideo.current.srcObject = stream;
+    streamRef.current = stream;
+    if (myVideo.current) {
+      myVideo.current.srcObject = stream;
+      myVideo.current.play();
+    }
 
     const audioStream = new MediaStream(stream.getAudioTracks());
     const mediaRecorder = new MediaRecorder(audioStream);
+    mediaRecorderRef.current = mediaRecorder;
 
     mediaRecorder.ondataavailable = async (e) => {
       if (e.data.size > 0) {
         const formData = new FormData();
         formData.append('file', e.data, 'chunk.wav');
         await axios.post('/transcribe-chunk', formData);
-        // Update transcript in state as needed
       }
     };
-    mediaRecorder.start(5000); // every 5 seconds
+    mediaRecorder.start(5000);
 
     const p = new Peer({ initiator: true, trickle: false, stream });
     setPeer(p);
@@ -52,27 +72,34 @@ function VideoCall() {
     });
 
     p.on('stream', partnerStream => {
-      partnerVideo.current.srcObject = partnerStream;
+      if (partnerVideo.current) {
+        partnerVideo.current.srcObject = partnerStream;
+        partnerVideo.current.play();
+      }
     });
   };
 
   const answerCall = async (signalData, fromId) => {
     setPartnerId(fromId);
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    myVideo.current.srcObject = stream;
+    streamRef.current = stream;
+    if (myVideo.current) {
+      myVideo.current.srcObject = stream;
+      myVideo.current.play();
+    }
 
     const audioStream = new MediaStream(stream.getAudioTracks());
     const mediaRecorder = new MediaRecorder(audioStream);
+    mediaRecorderRef.current = mediaRecorder;
 
     mediaRecorder.ondataavailable = async (e) => {
       if (e.data.size > 0) {
         const formData = new FormData();
         formData.append('file', e.data, 'chunk.wav');
         await axios.post('/transcribe-chunk', formData);
-        // Update transcript in state as needed
       }
     };
-    mediaRecorder.start(5000); // every 5 seconds
+    mediaRecorder.start(5000);
 
     const p = new Peer({ initiator: false, trickle: false, stream });
     setPeer(p);
@@ -82,7 +109,10 @@ function VideoCall() {
     });
 
     p.on('stream', partnerStream => {
-      partnerVideo.current.srcObject = partnerStream;
+      if (partnerVideo.current) {
+        partnerVideo.current.srcObject = partnerStream;
+        partnerVideo.current.play();
+      }
     });
 
     p.signal(signalData);
